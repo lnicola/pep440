@@ -1,0 +1,8 @@
+[package]
+name = "pep440"
+version = "0.1.0"
+authors = ["Laurentiu Nicola <lnicola@dend.ro>"]
+
+[dependencies]
+lazy_static = "*"
+regex = "*"
