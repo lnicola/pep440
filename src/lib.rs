@@ -1,10 +1,16 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate error_chain;
 extern crate regex;
 
 pub mod pep440 {
-    use std::num::ParseIntError;
-    use std::fmt::{Display, Formatter, Error};
+    mod errors {
+        error_chain!{}
+    }
+
+    use self::errors::*;
+    use std::fmt::{self, Display, Formatter};
     use regex::{Captures, Regex};
 
     #[derive(Debug, PartialEq)]
@@ -25,23 +31,31 @@ pub mod pep440 {
     }
 
     impl Version {
-        fn parse_helper(captures: Captures) -> Result<Version, ParseIntError> {
+        fn parse_helper(captures: Captures) -> Result<Version> {
             let epoch = if let Some(epoch) = captures.at(1) {
-                Some(try!(epoch.parse()))
+                Some(try!(epoch.parse()
+                    .chain_err(|| format!("invalid integer value for epoch: {}", epoch))))
             } else {
                 None
             };
 
             let mut release = vec![];
-            release.push(try!(captures.at(2).unwrap().parse()));
+            let release_val = captures.at(2).unwrap();
+            release.push(try!(release_val.parse().chain_err(|| {
+                format!("invalid integer value for release segment: {}", release_val)
+            })));
             if let Some(release_additional_group) = captures.at(3) {
                 for val in release_additional_group.split('.').skip(1) {
-                    release.push(try!(val.parse()));
+                    release.push(try!(val.parse().chain_err(|| {
+                        format!("invalid integer value for release segment: {}", val)
+                    })));
                 }
             }
 
             let pre_val = if let Some(val) = captures.at(7) {
-                try!(val.parse())
+                try!(val.parse().chain_err(|| {
+                    format!("invalid integer value for pre-release segment: {}", val)
+                }))
             } else {
                 0
             };
@@ -58,19 +72,26 @@ pub mod pep440 {
 
             let post = if captures.at(8).is_some() {
                 Some(if let Some(val) = captures.at(9) {
-                    try!(val.parse())
+                    try!(val.parse().chain_err(|| {
+                        format!("invalid integer value for post release segment: {}", val)
+                    }))
                 } else {
                     0
                 })
-            } else if let Some(val2) = captures.at(10) {
-                Some(try!(val2.parse()))
+            } else if let Some(val) = captures.at(10) {
+                Some(try!(val.parse().chain_err(|| {
+                    format!("invalid integer value for post release segment: {}", val)
+                })))
             } else {
                 None
             };
 
             let dev = if captures.at(11).is_some() {
                 Some(if let Some(val) = captures.at(12) {
-                    try!(val.parse())
+                    try!(val.parse().chain_err(|| {
+                        format!("invalid integer value for development release segment: {}",
+                                val)
+                    }))
                 } else {
                     0
                 })
@@ -141,7 +162,7 @@ pub mod pep440 {
     }
 
     impl Display for Version {
-        fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        fn fmt(&self, f: &mut Formatter) -> fmt::Result {
             if let Some(epoch) = self.epoch {
                 try!(write!(f, "{}!", epoch));
             }
