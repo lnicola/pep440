@@ -33,29 +33,31 @@ pub mod pep440 {
     impl Version {
         fn parse_helper(captures: Captures) -> Result<Version> {
             let epoch = if let Some(epoch) = captures.at(1) {
-                Some(try!(epoch.parse()
-                    .chain_err(|| format!("invalid integer value for epoch: {}", epoch))))
+                Some(epoch.parse()
+                    .chain_err(|| format!("invalid integer value for epoch: {}", epoch))?)
             } else {
                 None
             };
 
             let mut release = vec![];
             let release_val = captures.at(2).unwrap();
-            release.push(try!(release_val.parse().chain_err(|| {
-                format!("invalid integer value for release segment: {}", release_val)
-            })));
+            release.push(release_val.parse()
+                .chain_err(|| {
+                    format!("invalid integer value for release segment: {}", release_val)
+                })?);
             if let Some(release_additional_group) = captures.at(3) {
                 for val in release_additional_group.split('.').skip(1) {
-                    release.push(try!(val.parse().chain_err(|| {
-                        format!("invalid integer value for release segment: {}", val)
-                    })));
+                    release.push(val.parse()
+                        .chain_err(|| {
+                            format!("invalid integer value for release segment: {}", val)
+                        })?);
                 }
             }
 
             let pre_val = if let Some(val) = captures.at(7) {
-                try!(val.parse().chain_err(|| {
+                val.parse().chain_err(|| {
                     format!("invalid integer value for pre-release segment: {}", val)
-                }))
+                })?
             } else {
                 0
             };
@@ -72,26 +74,29 @@ pub mod pep440 {
 
             let post = if captures.at(8).is_some() {
                 Some(if let Some(val) = captures.at(9) {
-                    try!(val.parse().chain_err(|| {
-                        format!("invalid integer value for post release segment: {}", val)
-                    }))
+                    val.parse()
+                        .chain_err(|| {
+                            format!("invalid integer value for post release segment: {}", val)
+                        })?
                 } else {
                     0
                 })
             } else if let Some(val) = captures.at(10) {
-                Some(try!(val.parse().chain_err(|| {
-                    format!("invalid integer value for post release segment: {}", val)
-                })))
+                Some(val.parse()
+                    .chain_err(|| {
+                        format!("invalid integer value for post release segment: {}", val)
+                    })?)
             } else {
                 None
             };
 
             let dev = if captures.at(11).is_some() {
                 Some(if let Some(val) = captures.at(12) {
-                    try!(val.parse().chain_err(|| {
-                        format!("invalid integer value for development release segment: {}",
-                                val)
-                    }))
+                    val.parse()
+                        .chain_err(|| {
+                            format!("invalid integer value for development release segment: {}",
+                                    val)
+                        })?
                 } else {
                     0
                 })
@@ -164,32 +169,32 @@ pub mod pep440 {
     impl Display for Version {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
             if let Some(epoch) = self.epoch {
-                try!(write!(f, "{}!", epoch));
+                write!(f, "{}!", epoch)?;
             }
 
             let len = self.release.len();
             for val in &self.release[0..len - 1] {
-                try!(write!(f, "{}.", val));
+                write!(f, "{}.", val)?;
             }
-            try!(write!(f, "{}", self.release[len - 1]));
+            write!(f, "{}", self.release[len - 1])?;
 
             match self.pre_release {
-                Some(PreReleaseSegment::Alpha(val)) => try!(write!(f, "a{}", val)),
-                Some(PreReleaseSegment::Beta(val)) => try!(write!(f, "b{}", val)),
-                Some(PreReleaseSegment::ReleaseCandidate(val)) => try!(write!(f, "rc{}", val)),
+                Some(PreReleaseSegment::Alpha(val)) => write!(f, "a{}", val)?,
+                Some(PreReleaseSegment::Beta(val)) => write!(f, "b{}", val)?,
+                Some(PreReleaseSegment::ReleaseCandidate(val)) => write!(f, "rc{}", val)?,
                 None => {}
             };
 
             if let Some(val) = self.post_release {
-                try!(write!(f, ".post{}", val));
+                write!(f, ".post{}", val)?;
             }
 
             if let Some(val) = self.dev_release {
-                try!(write!(f, ".dev{}", val));
+                write!(f, ".dev{}", val)?;
             }
 
             if let Some(ref val) = self.local_label {
-                try!(write!(f, "+{}", val));
+                write!(f, "+{}", val)?;
             }
 
             Ok(())
