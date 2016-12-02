@@ -6,7 +6,14 @@ extern crate regex;
 
 pub mod pep440 {
     mod errors {
-        error_chain!{}
+        error_chain! {
+            errors {
+                Parse(v: String) {
+                    description("unable to parse version string")
+                    display("unable to parse version string: '{}'", v)
+                }
+            }
+        }
     }
 
     use self::errors::*;
@@ -42,15 +49,15 @@ pub mod pep440 {
             let mut release = vec![];
             let release_val = captures.at(2).unwrap();
             release.push(release_val.parse()
-                .chain_err(|| {
-                    format!("invalid integer value for release segment: {}", release_val)
-                })?);
+                    .chain_err(|| {
+                        format!("invalid integer value for release segment: {}", release_val)
+                    })?);
             if let Some(release_additional_group) = captures.at(3) {
                 for val in release_additional_group.split('.').skip(1) {
                     release.push(val.parse()
-                        .chain_err(|| {
-                            format!("invalid integer value for release segment: {}", val)
-                        })?);
+                            .chain_err(|| {
+                                format!("invalid integer value for release segment: {}", val)
+                            })?);
                 }
             }
 
@@ -123,9 +130,10 @@ pub mod pep440 {
             })
         }
 
-        pub fn parse(s: &str) -> Option<Version> {
+        pub fn parse(s: &str) -> Result<Version> {
             lazy_static! {
-                static ref RE: Regex = Regex::new(r"(?ix-u) # case insensitive, ignore whitespace, disable Unicode
+                static ref RE: Regex = Regex::new(
+                    r"(?ix-u) # case insensitive, ignore whitespace, disable Unicode
                     ^\s* # leading whitespace
                     v? # preceding v character
                     (?:(\d+)!)? # epoch
@@ -159,9 +167,9 @@ pub mod pep440 {
             }
 
             if let Some(captures) = RE.captures(s) {
-                Self::parse_helper(captures).ok()
+                Self::parse_helper(captures)
             } else {
-                None
+                bail!(ErrorKind::Parse(s.to_string()));
             }
         }
     }
@@ -243,7 +251,7 @@ pub mod pep440 {
 
         #[test]
         fn normalization_case_sensitivity() {
-            assert!(Version::parse("1.1.RC1").is_some());
+            assert!(Version::parse("1.1.RC1").is_ok());
         }
 
         #[test]
@@ -272,8 +280,8 @@ pub mod pep440 {
             assert_eq!(Version::parse("1.1a_1").unwrap().pre_release,
                        Some(PreReleaseSegment::Alpha(1)));
 
-            assert!(Version::parse("1.1..a1").is_none());
-            assert!(Version::parse("1.1a..1").is_none());
+            assert!(Version::parse("1.1..a1").is_err());
+            assert!(Version::parse("1.1a..1").is_err());
         }
 
         #[test]
@@ -300,8 +308,8 @@ pub mod pep440 {
             assert_eq!(Version::parse("1.2_post2").unwrap().post_release, Some(2));
             assert_eq!(Version::parse("1.2.post-2").unwrap().post_release, Some(2));
 
-            assert!(Version::parse("1.2..post2").is_none());
-            assert!(Version::parse("1.2post..1").is_none());
+            assert!(Version::parse("1.2..post2").is_err());
+            assert!(Version::parse("1.2post..1").is_err());
         }
 
         #[test]
@@ -319,7 +327,7 @@ pub mod pep440 {
         fn normalization_implicit_post_releases() {
             assert_eq!(Version::parse("1.0-1").unwrap().post_release, Some(1));
 
-            assert!(Version::parse("1.0-").is_none());
+            assert!(Version::parse("1.0-").is_err());
         }
 
         #[test]
@@ -327,8 +335,8 @@ pub mod pep440 {
             assert_eq!(Version::parse("1.2-dev2").unwrap().dev_release, Some(2));
             assert_eq!(Version::parse("1.2dev2").unwrap().dev_release, Some(2));
 
-            assert!(Version::parse("1.2..dev2").is_none());
-            assert!(Version::parse("1.2dev-2").is_none());
+            assert!(Version::parse("1.2..dev2").is_err());
+            assert!(Version::parse("1.2dev-2").is_err());
         }
 
         #[test]
@@ -346,13 +354,13 @@ pub mod pep440 {
 
         #[test]
         fn normalization_preceding_v_character() {
-            assert!(Version::parse("v1.2.0").is_some());
-            assert!(Version::parse("V1.2.0").is_some());
+            assert!(Version::parse("v1.2.0").is_ok());
+            assert!(Version::parse("V1.2.0").is_ok());
         }
 
         #[test]
         fn normalization_leading_trailing_whitespace() {
-            assert!(Version::parse(" \t\n1.2.0\t\n ").is_some());
+            assert!(Version::parse(" \t\n1.2.0\t\n ").is_ok());
         }
 
         #[test]
