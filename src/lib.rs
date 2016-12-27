@@ -17,8 +17,9 @@ pub mod pep440 {
     }
 
     use self::errors::*;
+    use std::result;
     use std::fmt::{self, Display, Formatter};
-    use regex::{Captures, Regex};
+    use regex::{self, Captures, Regex};
 
     #[derive(Debug, PartialEq)]
     pub enum PreReleaseSegment {
@@ -50,9 +51,9 @@ pub mod pep440 {
             if let Some(release_additional_group) = captures.at(2) {
                 for val in release_additional_group.split('.') {
                     release.push(val.parse()
-                        .chain_err(|| {
-                            format!("invalid integer value for release segment: {}", val)
-                        })?);
+                            .chain_err(|| {
+                                format!("invalid integer value for release segment: {}", val)
+                            })?);
                 }
             }
 
@@ -127,7 +128,7 @@ pub mod pep440 {
 
         pub fn parse(s: &str) -> Result<Version> {
             lazy_static! {
-                static ref RE: Regex = Regex::new(
+                static ref RE: result::Result<Regex, regex::Error> = Regex::new(
                     r"(?ix-u) # case insensitive, ignore whitespace, disable Unicode
                     ^\s* # leading whitespace
                     v? # preceding v character
@@ -157,13 +158,18 @@ pub mod pep440 {
                     (?: # local version label
                         \+([a-z0-9._-]+) # local version segments
                     )?
-                    \s*$ # trailing whitespace").unwrap();
+                    \s*$ # trailing whitespace");
             }
 
-            if let Some(captures) = RE.captures(s) {
-                Self::parse_helper(captures)
-            } else {
-                bail!(ErrorKind::Parse(s.to_string()));
+            match *RE {
+                Ok(ref re) => {
+                    if let Some(captures) = re.captures(s) {
+                        Self::parse_helper(captures)
+                    } else {
+                        bail!(ErrorKind::Parse(s.to_string()));
+                    }
+                }
+                _ => bail!("unable to create regex"),
             }
         }
     }
@@ -202,6 +208,56 @@ pub mod pep440 {
             Ok(())
         }
     }
+
+    use std::cmp::Ordering;
+
+    impl Ord for Version {
+        fn cmp(&self, other: &Self) -> Ordering {
+            use std::iter;
+
+            let r = self.epoch.unwrap_or(0).cmp(&other.epoch.unwrap_or(0));
+            if r != Ordering::Equal {
+                return r;
+            }
+
+            if self.release.len() > other.release.len() {
+                for (s1, s2) in self.release
+                    .iter()
+                    .zip(other.release.iter().chain(iter::repeat(&0))) {
+                    let r = s1.cmp(s2);
+                    if r != Ordering::Equal {
+                        return r;
+                    }
+                }
+            } else {
+                for (s1, s2) in self.release
+                    .iter()
+                    .chain(iter::repeat(&0))
+                    .zip(other.release.iter()) {
+                    let r = s1.cmp(s2);
+                    if r != Ordering::Equal {
+                        return r;
+                    }
+                }
+            }
+
+            Ordering::Equal
+        }
+    }
+
+    impl PartialOrd for Version {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    impl PartialEq for Version {
+        fn eq(&self, other: &Self) -> bool {
+            self.cmp(other) == Ordering::Equal
+        }
+    }
+
+    impl Eq for Version {}
 
     #[cfg(test)]
     mod tests {
