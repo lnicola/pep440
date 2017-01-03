@@ -4,10 +4,10 @@ version = "0.1.0"
 authors = ["Laurentiu Nicola <lnicola@dend.ro>"]
 
 [dependencies]
-lazy_static = "*"
-regex = "*"
+lazy_static = "0.2"
+regex = "0.2"
 
 [dependencies.error-chain]
-version = "*"
+version = "0.7"
 default-features = false
 features = []
