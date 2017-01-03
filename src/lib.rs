@@ -39,7 +39,8 @@ pub mod pep440 {
 
     impl Version {
         fn parse_helper(captures: Captures) -> Result<Version> {
-            let epoch = if let Some(epoch) = captures.at(1) {
+            let epoch = if let Some(epoch) = captures.get(1) {
+                let epoch = epoch.as_str();
                 Some(epoch.parse()
                     .chain_err(|| format!("invalid integer value for epoch: {}", epoch))?)
             } else {
@@ -47,16 +48,18 @@ pub mod pep440 {
             };
 
             let mut release = vec![];
-            if let Some(release_additional_group) = captures.at(2) {
+            if let Some(release_additional_group) = captures.get(2) {
+                let release_additional_group = release_additional_group.as_str();
                 for val in release_additional_group.split('.') {
                     release.push(val.parse()
-                        .chain_err(|| {
-                            format!("invalid integer value for release segment: {}", val)
-                        })?);
+                            .chain_err(|| {
+                                format!("invalid integer value for release segment: {}", val)
+                            })?);
                 }
             }
 
-            let pre_val = if let Some(val) = captures.at(6) {
+            let pre_val = if let Some(val) = captures.get(6) {
+                let val = val.as_str();
                 val.parse().chain_err(|| {
                     format!("invalid integer value for pre-release segment: {}", val)
                 })?
@@ -64,18 +67,19 @@ pub mod pep440 {
                 0
             };
 
-            let pre = if captures.at(3).is_some() {
+            let pre = if captures.get(3).is_some() {
                 Some(PreReleaseSegment::Alpha(pre_val))
-            } else if captures.at(4).is_some() {
+            } else if captures.get(4).is_some() {
                 Some(PreReleaseSegment::Beta(pre_val))
-            } else if captures.at(5).is_some() {
+            } else if captures.get(5).is_some() {
                 Some(PreReleaseSegment::ReleaseCandidate(pre_val))
             } else {
                 None
             };
 
-            let post = if captures.at(7).is_some() {
-                Some(if let Some(val) = captures.at(8) {
+            let post = if captures.get(7).is_some() {
+                Some(if let Some(val) = captures.get(8) {
+                    let val = val.as_str();
                     val.parse()
                         .chain_err(|| {
                             format!("invalid integer value for post release segment: {}", val)
@@ -83,7 +87,8 @@ pub mod pep440 {
                 } else {
                     0
                 })
-            } else if let Some(val) = captures.at(9) {
+            } else if let Some(val) = captures.get(9) {
+                let val = val.as_str();
                 Some(val.parse()
                     .chain_err(|| {
                         format!("invalid integer value for post release segment: {}", val)
@@ -92,8 +97,9 @@ pub mod pep440 {
                 None
             };
 
-            let dev = if captures.at(10).is_some() {
-                Some(if let Some(val) = captures.at(11) {
+            let dev = if captures.get(10).is_some() {
+                Some(if let Some(val) = captures.get(11) {
+                    let val = val.as_str();
                     val.parse()
                         .chain_err(|| {
                             format!("invalid integer value for development release segment: {}",
@@ -106,8 +112,9 @@ pub mod pep440 {
                 None
             };
 
-            let local_label = captures.at(12).map(|val| {
-                val.chars()
+            let local_label = captures.get(12).map(|val| {
+                val.as_str()
+                    .chars()
                     .map(|c| match c {
                         '_' | '-' => '.',
                         _ => c,
